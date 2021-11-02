@@ -1,7 +1,7 @@
 import argparse
 import glob
 import os
-
+import random
 
 import numpy as np
 
@@ -35,7 +35,9 @@ def split(data_dir):
     fileArray = glob.glob(data_dir)
 
 
-    
+    #Shuffle the data in the array
+    shuffle(fileArray)
+
     #Split the .tfrecord files in different folders in the ratio 80:10:10. 
     for name in fileArray:
         if( (fileArray.index(name)+1)/len(fileArray)*100 <= 80 and os.path.isfile(name) ):
