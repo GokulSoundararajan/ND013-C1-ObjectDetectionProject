@@ -1,144 +1,157 @@
-# Object detection in an Urban Environment
+# Project overview
+In this project, we use data from the [Waymo Open dataset](https://waymo.com/open/) in order to create a convolutional neural network to detect  and classify  objects. This is done by following steps such as data acquisition and processing, Exploratory data analysis(EDA) , cross validation, Data augmentation and creation of animations. 
 
-## Data
+Here is the [link](https://github.com/GokulSoundararajan/ND013-C1-ObjectDetectionProject) to this project's repository
 
-For this project, we will be using data from the [Waymo Open dataset](https://waymo.com/open/). The files can be downloaded directly from the website as tar files or from the [Google Cloud Bucket](https://console.cloud.google.com/storage/browser/waymo_open_dataset_v_1_2_0_individual_files/) as individual tf records. 
+# Instructions
+## Requirements
 
-## Structure
+* NVIDIA GPU with the latest driver installed
+* docker / nvidia-docker
 
-The data in the classroom workspace will be organized as follows:
+## Build
+Build the image with:
 ```
-/data/waymo/
-    - contains the tf records in the Tf Object detection api format.
-
-/home/workspace/data/
-    - test: contain the test data (empty to start)
-    - train: contain the train data (empty to start)
-    - val: contain the val data (empty to start)
+docker build -t project-dev -f Dockerfile.gpu .
 ```
 
-The experiments folder will be organized as follow:
+Create a container with:
 ```
-experiments/
-    - exporter_main_v2.py: to create an inference model
-    - model_main_tf2.py: to launch training
-    - experiment0/....
-    - experiment1/....
-    - experiment2/...
-    - pretrained-models/: contains the checkpoints of the pretrained models.
+docker run -v <PATH TO LOCAL PROJECT FOLDER>:/app/project/ -ti project-dev bash
 ```
+and any other flag you find useful to your system (eg, `--shm-size`).
 
-## Prerequisites
+## Set up
 
-### Local Setup
-
-For local setup if you have your own Nvidia GPU, you can use the provided Dockerfile and requirements in the [build directory](./build).
-
-Follow [the README therein](./build/README.md) to create a docker container and install all prerequisites.
-
-### Classroom Workspace
-
-In the classroom workspace, every library and package should already be installed in your environment. You will not need to make use of `gcloud` to download the images.
-
-## Instructions
-
-### Download and process the data
-
-**Note:** This first step is already done for you in the classroom workspace. You can find the downloaded and processed files within the `/data/waymo/` directory (note that this is different than the `/home/workspace/data` you'll use for splitting )
-
-The first goal of this project is to download the data from the Waymo's Google Cloud bucket to your local machine. For this project, we only need a subset of the data provided (for example, we do not need to use the Lidar data). Therefore, we are going to download and trim immediately each file. In `download_process.py`, you can view the `create_tf_example` function, which will perform this processing. This function takes the components of a Waymo Tf record and saves them in the Tf Object Detection api format. An example of such function is described [here](https://tensorflow-object-detection-api-tutorial.readthedocs.io/en/latest/training.html#create-tensorflow-records). We are already providing the `label_map.pbtxt` file.
-
-You can run the script using the following (you will need to add your desired directory names):
+Once in container, you will need to install gsutil, which you can easily do by running:
 ```
-python download_process.py --data_dir {processed_file_location} --temp_dir {temp_dir_for_raw_files}
+curl https://sdk.cloud.google.com | bash
 ```
 
-You are downloading 100 files so be patient! Once the script is done, you can look inside your data_dir folder to see if the files have been downloaded and processed correctly.
-
-
-### Exploratory Data Analysis
-
-Now that you have downloaded and processed the data, you should explore the dataset! This is the most important task of any machine learning project. To do so, open the `Exploratory Data Analysis` notebook. In this notebook, your first task will be to implement a `display_instances` function to display images and annotations using `matplotlib`. This should be very similar to the function you created during the course. Once you are done, feel free to spend more time exploring the data and report your findings. Report anything relevant about the dataset in the writeup.
-
-Keep in mind that you should refer to this analysis to create the different spits (training, testing and validation). 
-
-
-### Create the splits
-
-Now you have become one with the data! Congratulations! How will you use this knowledge to create the different splits: training, validation and testing. There are no single answer to this question but you will need to justify your choice in your submission. You will need to implement the `split_data` function in the `create_splits.py` file. Once you have implemented this function, run it using:
+Once gsutil is installed and added to your path, you can auth using:
 ```
-python create_splits.py --data_dir /home/workspace/data/
+gcloud auth login
 ```
+ download the [Pretrained model](http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_resnet50_v1_fpn_640x640_coco17_tpu-8.tar.gz) and extract it in the ```training/pretrained-models/``` directory of the project
+## Debug
+* Follow this [tutorial](https://tensorflow-object-detection-api-tutorial.readthedocs.io/en/latest/install.html#tensorflow-object-detection-api-installation) if you run into any issue with the installation of the
+tf object detection api
 
-NOTE: Keep in mind that your storage is limited. The files should be <ins>moved</ins> and not copied. 
+### Structure
 
-### Edit the config file
+*project_folder/build/*
+- Dockerfile.gpu: The docker file used to build the projet's docker image.
+- README.md: contains instructions for the project setup.
+- requirements.txt: contains the dependencies to be installed with the docker image.
 
-Now you are ready for training. As we explain during the course, the Tf Object Detection API relies on **config files**. The config that we will use for this project is `pipeline.config`, which is the config for a SSD Resnet 50 640x640 model. You can learn more about the Single Shot Detector [here](https://arxiv.org/pdf/1512.02325.pdf). 
+*project_folder/experiments*
+- exporter_main_v2.py: This file is used to create an inference model
+- model_main_tf2.py: This file is used to launch training
 
-First, let's download the [pretrained model](http://download.tensorflow.org/models/object_detection/tf2/20200711/ssd_resnet50_v1_fpn_640x640_coco17_tpu-8.tar.gz) and move it to `training/pretrained-models/`. 
+*project_folder/training/pretrained-models/*
+- This folder contains the checkpoints of the pretrained models.
 
-Now we need to edit the config files to change the location of the training and validation files, as well as the location of the label_map file, pretrained weights. We also need to adjust the batch size. To do so, run the following:
-```
-python edit_config.py --train_dir /home/workspace/data/train/ --eval_dir /home/workspace/data/val/ --batch_size 4 --checkpoint ./training/pretrained-models/ssd_resnet50_v1_fpn_640x640_coco17_tpu-8/checkpoint/ckpt-0 --label_map label_map.pbtxt
-```
-A new config file has been created, `pipeline_new.config`.
-
-### Training
-
-You will now launch your very first experiment with the Tensorflow object detection API. Create a folder `training/reference`. Move the `pipeline_new.config` to this folder. You will now have to launch two processes: 
-* a training process:
-```
-python model_main_tf2.py --model_dir=training/reference/ --pipeline_config_path=training/reference/pipeline_new.config
-```
-* an evaluation process:
-```
-python model_main_tf2.py --model_dir=training/reference/ --pipeline_config_path=training/reference/pipeline_new.config --checkpoint_dir=training/reference/
-```
-
-NOTE: both processes will display some Tensorflow warnings.
-
-To monitor the training, you can launch a tensorboard instance by running `tensorboard --logdir=training`. You will report your findings in the writeup. 
-
-### Improve the performances
-
-Most likely, this initial experiment did not yield optimal results. However, you can make multiple changes to the config file to improve this model. One obvious change consists in improving the data augmentation strategy. The [`preprocessor.proto`](https://github.com/tensorflow/models/blob/master/research/object_detection/protos/preprocessor.proto) file contains the different data augmentation method available in the Tf Object Detection API. To help you visualize these augmentations, we are providing a notebook: `Explore augmentations.ipynb`. Using this notebook, try different data augmentation combinations and select the one you think is optimal for our dataset. Justify your choices in the writeup. 
-
-Keep in mind that the following are also available:
-* experiment with the optimizer: type of optimizer, learning rate, scheduler etc
-* experiment with the architecture. The Tf Object Detection API [model zoo](https://github.com/tensorflow/models/blob/master/research/object_detection/g3doc/tf2_detection_zoo.md) offers many architectures. Keep in mind that the `pipeline.config` file is unique for each architecture and you will have to edit it. 
-
-
-### Creating an animation
-#### Export the trained model
-Modify the arguments of the following function to adjust it to your models:
-```
-python .\exporter_main_v2.py --input_type image_tensor --pipeline_config_path training/experiment0/pipeline.config --trained_checkpoint_dir training/experiment0/ckpt-50 --output_directory training/experiment0/exported_model/
-```
-
-Finally, you can create a video of your model's inferences for any tf record file. To do so, run the following command (modify it to your files):
-```
-python inference_video.py -labelmap_path label_map.pbtxt --model_path training/experiment0/exported_model/saved_model --tf_record_path /home/workspace/data/test/tf.record --config_path training/experiment0/pipeline_new.config --output_path animation.mp4
-```
-
-## Submission Template
-
-### Project overview
-This section should contain a brief description of the project and what we are trying to achieve. Why is object detection such an important component of self driving car systems?
-
-### Set up
-This section should contain a brief description of the steps to follow to run the code for this repository.
+*project_folder/*
+- create_splits.py: Creates the test, val and train folders and partitions the datasets into them.
+- download_process.py: Downloads data sets from Waymo Open Dataset and processes them into acceptavble format.
+- edit_config.py: this file is used to generate configuration files used for model training.
+- Exploratory Data Analysis.ipynb: Used to analyse the image and annotation data by displaying them.
+- Explore augmentations.ipynb: Used to test various augmentation methods.
+- filenames.txt: contains the file names of the data sets to be downloaded.
+- inference_video.py: This file is used to generate animation videos of our model's inference for any tf record file.
+- label_map.pbtxt: Contains the defined object classes
+- pipeline_new.config: The training configuration file.
 
 ### Dataset
 #### Dataset analysis
-This section should contain a quantitative and qualitative description of the dataset. It should include images, charts and other visualizations.
+After exploring the dataset the following analysis where made
+
+![Urban image](images/single.png)
+
+- It can be seen from the image above that the image was taken in town and contains a vehicles, pedestrians and a cyclist.
+- Some objects are close enough to the camera while other are very far away and almost can't be seen with the human eye.
+
+
+![Urban Image](images/many.png)
+
+- Some images do not contain all the class objects, some only have cars, some have cars and pedestrians only.
+- Mean while in some images the environment is bright and the lighing is clear enough, in some other images where taken at night and the environement is quit dark as well as due to climate changes some images are blured by fog.
+- The overall class Overall, there are more cars that pedestrians and cyclists.
+- Images are taken in town , hightways etc.
+- Some Images are taken during the day, some at night, some are blured due to fog or darkness.
+
+![graph](images/graph.png)
+- Here we have the charts for the object distribution and Number of annotations per images.
+- This show that the images contain a higher number of vehicles than pedestrians and cyclists so the class distribution is not balanced.
+- We can see from these charts that the images contain a higer number of vehicles that pedestrians and cyclists, where cyclists are the least numerous objects.
+- The chart of number of annotations per images demonstrates that there is a higher number of images that contain between o to 10 annotations than any other. And images with a high numder of annotations are the least numbered.
+
+
 #### Cross validation
-This section should detail the cross validation strategy and justify your approach.
+- Here the cross validation strategy is to randomly split the dataset into three partitions for trainign test and evaluation in the ration 8:1:1 or percentages 80%,10% and 10%. This because the training set need to be large enough in such a way that the model gets well trained because from the results of the analysis, we can see that the percentage of cyclist objects per images is very low so if the training data is no much the model might not be well trained to recognise cyclists.
+- It can also be seen that the climate and brightness can change from image to image so the training data should be large enough for the model to be able to recognize object classes in any kind of image.
+
+- The dataset is shuffled in order to ensure that images taken from different trips are evenly distributed amongs the train, eval and test partitions.
 
 ### Training 
 #### Reference experiment
-This section should detail the results of the reference experiment. It should includes training metrics and a detailed explanation of the algorithm's performances.
+
+After monitoring the training through the tensorboard, the following was discoverd.
+
+![Training result](images/train1.png)
+![Training result](images/train2.png)
+- From the precision charts we can see that the Detection boxes mean average precision is quite low. As the training goes on, the precision of object detection boxes also increases but the overall precision remains low.
+![Training result](images/train3.png)
+- Here validation loss is higher that training loss. This shows that there is some over fitting in the data set though it is not that much. This behaviour was expected and it should be enhanced with data augmentstion which will give a better recognition of unkonwn data to the model.
+
 
 #### Improve on the reference
-This section should highlight the different strategies you adopted to improve your model. It should contain relevant figures and details of your findings.
+
+Since images where taken from different places having different climatic conditions and which are differently lit, the data augmentation options which would yield the best results are those that provide some variation in the captured environment like scalling up and down, changing the color, contrast, brigthness and intensity in order the permit the model to detect objects from environments with any type of climate and bightness.
+The Augmentation options chosen here are;
+-  random_image_scale:
+    Since there are cases where the vehicles can vbe close enough to the camera or too far from it, this augmentation was chosen in order to simulate that by randomly enlarging or minimizing images. This should enhance the training. 
+
+- random_horizontal_flip:
+    This flips the position of objects in images this will help to better train the model to recognize objects from any direction.
+
+- random_rgb_to_gray:
+    This augmentation is used so the the model can better recognize objects even in the dark or in zones where the view is blured due to fog.
+- random_adjust_brightness:
+    This randomly adjusts the brightness of the images and enhances the object recognition of the model in daylight or in the night in torch light.
+- random_adjust_contrast:
+    This modifies the contrast of the images to make it more dark and trains the model to recognize images in dart climates.
+- random_distort_color:
+    With image colors randomly distorted, the model will better recognize vehicles with any typre of paint, and it will also enhance image recognition when moving at high speed.
  
+ Bellow are some images illustrating the result of these augmentations.
+![Training result](images/augmentation1.png)
+![Training result](images/augmentation2.png)
+![Training result](images/augmentation3.png)
+![Training result](images/augmentation4.png)
+![Training result](images/augmentation5.png)
+![Training result](images/augmentation6.png)
+![Training result](images/augmentation7.png)
+![Training result](images/augmentation8.png)
+
+- The number of training steps where increased to 30000 to make the training more thorough.
+
+
+Throught the different optimizers which could be used here like Mini batch, Momentum and AdaGrad and RMSSProp,[Adam optimizer](https://www.tensorflow.org/api_docs/python/tf/compat/v1/train/AdamOptimizer) was tested but the result was bad, precision and recall were very low and unstable as seen below. 
+
+
+So Momentun optimizer was retained.
+
+
+
+The architecture [resnet152](https://hub.tensorflow.google.cn/tensorflow/retinanet/resnet152_v1_fpn_640x640/1) could be used but finally resnet50 was retained.
+
+
+After running the training with these augmentations applied, it can be seen from the new loss chart that the loss with augmentation is less than the loss that we had without augmentation. This then results to a less significant error from the model during optimization.
+- It can also be seen that due to the applied augmentations the overall precision and recall of the model are higher and thus perform better in the recognition of objects in images. 
+- As seen in the key, the results without augmentation where stored in the experiment0 folder while those with augmentations where store in the reference folder. each curve has a different color.
+ ![Training result](images/retrain1.png)
+ ![Training result](images/retrain2.png)
+ ![Training result](images/retrain3.png)
+
+    The video animation.mp4 demonstrates the working of this model in real life situations.
